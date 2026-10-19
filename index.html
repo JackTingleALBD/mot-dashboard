@@ -182,7 +182,7 @@ function render() {
       row('Days remaining', fmt(daysLeft)) + '</div>' +
       '<div class="card"><div class="lbl" style="margin-bottom:6px">Programme status</div>' +
       row('Awaiting initial MOT', fmt(remaining)) + row('Scheduled (MOT TL assigned)', fmt(L['MOT Scheduled'] || 0)) + row('Due (annual)', fmt(L['MOT Due'] || 0)) + row('Overdue', fmt(L['MOT Overdue'] || 0)) +
-      row('Suspended (data quality check)', fmt(L['MOT Suspended'] || 0)) + row('Failed - revisit not yet scheduled', fmt(L['MOT Revisit Required'] || 0)) + '</div></div>';
+      row('Suspended (Poor Data Visit Lockout)', fmt(L['MOT Suspended'] || 0)) + row('Failed - revisit not yet scheduled', fmt(L['MOT Revisit Required'] || 0)) + '</div></div>';
   }
 
   if (show('trend')) {
