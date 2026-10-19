@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>MOT programme</title>
+<style>
+  :root { --blue:#1E88E5; --blue-d:#1565C0; --blue-l:#E3F2FD; --ink:#2b2b2b; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --card:#f7f9fb;
+          --ok:#2e7d32; --ok-l:#e8f5e9; --warn:#b26a00; --warn-l:#fff4e0; --bad:#c62828; --bad-l:#fdecea;
+          --surface:#ffffff; --on-blue:#ffffff; --ref:#9ca3af; --grid:#eef0f3; color-scheme:light; }
+  :root[data-theme=dark] { --blue:#4BA3F5; --blue-d:#8EC5FF; --blue-l:#1D3550; --ink:#E6E8EB; --muted:#9AA3AD; --line:#2C323A; --bg:#121417; --card:#1B1F24;
+          --ok:#7BD88F; --ok-l:#1E3324; --warn:#F0B45A; --warn-l:#3A2C14; --bad:#FF8A80; --bad-l:#3D1D1D;
+          --surface:#22272E; --on-blue:#0B1620; --ref:#7C8590; --grid:#262B32; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
+  .wrap { padding:14px 16px 24px; max-width:1400px; margin:0 auto; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .top h1 { font-size:17px; font-weight:600; margin:0; color:var(--ink); }
+  .asof { font-size:12px; color:var(--muted); }
+  .tag { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--blue-l); color:var(--blue-d); margin-left:8px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .grid2 { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .lbl { font-size:12px; color:var(--muted); }
+  .num { font-size:24px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .hero { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:4px 0 8px; }
+  .hero .big { font-size:40px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .bar { height:10px; background:var(--blue-l); border-radius:5px; overflow:hidden; }
+  .bar > div { height:100%; background:var(--blue); }
+  .row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .row:last-child { border-bottom:0; }
+  .row b { font-weight:600; font-variant-numeric:tabular-nums; }
+  .pill { font-size:12px; padding:2px 10px; border-radius:10px; }
+  .pill.ok { background:var(--ok-l); color:var(--ok); } .pill.warn { background:var(--warn-l); color:var(--warn); } .pill.bad { background:var(--bad-l); color:var(--bad); }
+  h2 { font-size:14px; font-weight:600; margin:18px 0 8px; color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0 10px; }
+  .chip { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:14px; padding:4px 10px; font-size:12px; cursor:pointer; }
+  .chip.on { background:var(--blue); border-color:var(--blue); color:var(--on-blue); }
+  input[type=date] { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-size:12px; font-family:inherit; }
+  .btn { display:inline-block; background:var(--blue); color:var(--on-blue); border-radius:6px; padding:7px 14px; font-size:13px; text-decoration:none; border:0; cursor:pointer; }
+  .btn.sec { background:var(--surface); color:var(--blue-d); border:1px solid var(--blue); }
+  .chart { position:relative; height:220px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; font-size:12px; } .n { text-align:right; font-variant-numeric:tabular-nums; }
+  .empty { color:var(--muted); font-size:13px; padding:10px 0; }
+  .err { color:var(--bad); padding:20px; }
+  .tbtn { background:var(--surface); color:var(--muted); border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .tbtn:hover { color:var(--ink); }
+  .right { display:flex; align-items:center; gap:10px; }
+  .internal { border-left:3px solid var(--warn); padding-left:10px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="asof">Loading MOT programme data...</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+<script>
+// MOT DASHBOARD - PORTAL PAGE
+// A copy of the Apps Script dashboard that is hosted outside Google. It fetches its data from the web app
+// WITHOUT the viewer's Google sign-in (credentials: 'omit'), so it works however many Google accounts the
+// viewer is signed into. Only change needed: paste the web app address (ends /exec) below.
+var API = 'https://script.google.com/macros/s/AKfycbxXVV6KU5LthNMI5rnWDi4axt0xYcUMqQ71hRzukFBy1hMNhzc562dOJZ3kJXL9USIV4g/exec';
+
+// Page address: ?k=<access key>  optional &s=summary|trend|findings|export  &t=dark|light
+var QS = new URLSearchParams(location.search);
+var CFG = {
+  key: QS.get('k') || '',
+  theme: /^(dark|light)$/.test(QS.get('t') || '') ? QS.get('t') : 'auto',
+  section: /^(summary|trend|findings|export)$/.test(QS.get('s') || '') ? QS.get('s') : 'all'
+};
+var KEY = CFG.key, VIEW = 'shared', TITLE = 'MOT programme', PDF = '', SECTION = CFG.section;
+var D = null, RANGE = { preset: 'ptd', from: null, to: null }, charts = {};
+
+// Theme: the viewer's own choice (remembered in this browser) > ?t=dark|light in the embed address > their device setting
+var MQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function savedTheme() { try { return localStorage.getItem('motTheme'); } catch (e) { return null; } }
+function currentTheme() { var s = savedTheme(); if (s === 'dark' || s === 'light') return s; if (CFG.theme === 'dark' || CFG.theme === 'light') return CFG.theme; return MQ && MQ.matches ? 'dark' : 'light'; }
+function applyTheme() { document.documentElement.setAttribute('data-theme', currentTheme()); }
+function toggleTheme() {
+  var next = currentTheme() === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('motTheme', next); } catch (e) { /* storage blocked: still switches for this visit */ CFG.theme = next; }
+  applyTheme(); if (D) render();
+}
+if (MQ && MQ.addEventListener) MQ.addEventListener('change', function () { applyTheme(); if (D) render(); });
+applyTheme();
+
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function dmy(s) { return s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : ''; }
+function addDays(s, n) { var d = new Date(s + 'T12:00'); d.setDate(d.getDate() + n); return ymd(d); }
+function monday(s) { var d = new Date(s + 'T12:00'); var k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymd(d); }
+function fmt(n) { return (Math.round(n * 10) / 10).toLocaleString('en-GB'); }
+function truthy(v) { return v === true || /^(true|yes|y)$/i.test(String(v).trim()); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+function showErr(msg) { document.getElementById('app').innerHTML = '<div class="err">' + esc(msg) + '</div>'; }
+
+// credentials: 'omit' sends no Google cookies, so Google never routes the request to a signed-in account (/u/1/).
+function api(params) {
+  var q = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  return fetch(API + '?k=' + encodeURIComponent(KEY) + '&' + q, { credentials: 'omit', cache: 'no-store', redirect: 'follow' })
+    .then(function (r) { if (!r.ok) throw new Error('The data service returned ' + r.status); return r.text(); });
+}
+
+function load() {
+  if (!KEY) { showErr('This link is not valid. Please open the dashboard from the portal.'); return; }
+  api({ format: 'json' }).then(function (txt) {
+    var j;
+    try { j = JSON.parse(txt); } catch (e) { throw new Error('The data service did not return data. Check the web app is deployed with access "Anyone".'); }
+    if (j.error) { showErr(j.error); return; }
+    VIEW = j.view; TITLE = j.title || TITLE; PDF = j.pdfUrl || ''; document.title = TITLE;
+    D = prepare(j.data); render();
+  }).catch(function (e) { showErr('Could not load the data: ' + (e && e.message || e)); });
+}
+
+function exportCsv(from, to, btn) {
+  var label = btn.textContent; btn.textContent = 'Preparing CSV...'; btn.disabled = true;
+  api({ export: 'csv', from: from, to: to }).then(function (csv) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'MOT visits ' + (from || 'start') + ' to ' + (to || 'latest') + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }).catch(function (e) { alert('Could not export: ' + (e && e.message || e)); })
+    .then(function () { btn.textContent = label; btn.disabled = false; });
+}
+
+function prepare(d) {
+  var f = d.events.fields;
+  d.ev = d.events.rows.map(function (r) { var o = {}; f.forEach(function (k, i) { o[k] = r[i]; }); o.day = String(o.Date || o.DateTime).slice(0, 10); return o; });
+  var h = d.daily.head;
+  d.days = d.daily.rows.map(function (r) { var o = {}; h.forEach(function (k, i) { o[k] = r[i]; }); o.day = String(o.Date).slice(0, 10); return o; })
+    .sort(function (a, b) { return a.day < b.day ? -1 : 1; });
+  d.latest = d.days[d.days.length - 1] || {};
+  d.today = String(d.generated).slice(0, 10);
+  return d;
+}
+
+function done(from, to) { return D.ev.filter(function (e) { return e.Outcome === 'Completed' && e.day >= from && e.day <= to; }); }
+function inRange() {
+  var r = rangeDates();
+  return D.ev.filter(function (e) { return e.day >= r.from && e.day <= r.to; });
+}
+function rangeDates() {
+  var t = D.today, p = RANGE.preset;
+  if (p === 'custom') return { from: RANGE.from || '0000-01-01', to: RANGE.to || t, label: dmy(RANGE.from) + ' to ' + dmy(RANGE.to || t) };
+  if (p === 'wtd') return { from: monday(t), to: t, label: 'This week' };
+  if (p === 'lw') { var m = monday(t); return { from: addDays(m, -7), to: addDays(m, -1), label: 'Last week' }; }
+  if (p === 'mtd') return { from: t.slice(0, 8) + '01', to: t, label: 'This month' };
+  if (p === 'lm') { var d = new Date(t.slice(0, 8) + '01T12:00'); d.setDate(0); var e = ymd(d); return { from: e.slice(0, 8) + '01', to: e, label: 'Last month' }; }
+  if (p === 'ytd') return { from: t.slice(0, 4) + '-01-01', to: t, label: 'Year to date' };
+  return { from: '0000-01-01', to: t, label: 'Programme to date' };
+}
+
+function render() {
+  var L = D.latest, t = D.today, h = '';
+  h += '<div class="top"><h1>' + esc(TITLE) + (VIEW === 'internal' ? '<span class="tag">Internal</span>' : '') + '</h1>' +
+       '<span class="right"><span class="asof">Updated ' + dmy(String(D.generated).slice(0, 10)) + ' ' + String(D.generated).slice(11, 16) + '</span>' +
+       '<button class="tbtn" onclick="toggleTheme()">' + (currentTheme() === 'dark' ? 'Light mode' : 'Dark mode') + '</button></span></div>';
+  var show = function (s) { return SECTION === 'all' || SECTION === s; };
+
+  if (show('summary')) {
+    var scope = Number(L['In scope'] || 0), initDone = Number(L['Initial MOTs done (ever)'] || 0), remaining = Number(L['Initial MOT still needed'] || 0);
+    var daysLeft = Number(L['Days to target'] || 0), required = daysLeft ? remaining / daysLeft : remaining;
+    var pace7 = done(addDays(t, -6), t).length / 7, pace28 = done(addDays(t, -27), t).length / 28;
+    var pct = scope ? initDone / scope * 100 : 0;
+    var finish = pace7 > 0 ? addDays(t, Math.ceil(remaining / pace7)) : null, target = addDays(t, daysLeft);
+    var state = !D.ev.length ? ['', ''] : (finish && finish <= target ? ['ok', 'On track'] : pace7 > 0 ? ['warn', 'Behind required pace'] : ['bad', 'No MOTs in the last 7 days']);
+    h += '<div class="card"><div class="top" style="margin:0"><span class="lbl">Initial MOTs completed</span>' + (state[0] ? '<span class="pill ' + state[0] + '">' + state[1] + '</span>' : '') + '</div>' +
+      '<div class="hero"><span class="big">' + fmt(initDone) + '</span><span class="lbl">of ' + fmt(scope) + ' sites in scope (' + fmt(pct) + '%)</span></div>' +
+      '<div class="bar"><div style="width:' + Math.min(pct, 100) + '%"></div></div>' +
+      '<div class="top" style="margin:6px 0 0"><span class="sub">Programme start 30/10/2026</span><span class="sub">Target ' + dmy(target) + '</span></div></div>';
+    h += '<div class="grid" style="margin-top:12px">' +
+      card('Today', done(t, t).length) + card('Week to date', done(monday(t), t).length, 'since Mon ' + dmy(monday(t))) +
+      card('Last week', done(addDays(monday(t), -7), addDays(monday(t), -1)).length) +
+      card('This month', done(t.slice(0, 8) + '01', t).length) + card('Year to date', done(t.slice(0, 4) + '-01-01', t).length) + '</div>';
+    h += '<div class="grid2" style="margin-top:12px"><div class="card"><div class="lbl" style="margin-bottom:6px">Forecast</div>' +
+      row('Current pace (last 7 days)', fmt(pace7) + ' / day') + row('Current pace (last 28 days)', fmt(pace28) + ' / day') +
+      row('Needed to hit target', fmt(required) + ' / day') + row('Projected finish at current pace', finish ? dmy(finish) : '-') +
+      row('Days remaining', fmt(daysLeft)) + '</div>' +
+      '<div class="card"><div class="lbl" style="margin-bottom:6px">Programme status</div>' +
+      row('Awaiting initial MOT', fmt(remaining)) + row('Scheduled (MOT TL assigned)', fmt(L['MOT Scheduled'] || 0)) + row('Due (annual)', fmt(L['MOT Due'] || 0)) + row('Overdue', fmt(L['MOT Overdue'] || 0)) +
+      row('Suspended (data quality check)', fmt(L['MOT Suspended'] || 0)) + row('Failed - revisit not yet scheduled', fmt(L['MOT Revisit Required'] || 0)) + '</div></div>';
+  }
+
+  if (show('trend')) {
+    h += '<h2>MOTs completed per week</h2><div class="chart" id="cWeek" role="img" aria-label="MOTs completed per week against the required weekly pace"></div>';
+  }
+
+  if (show('findings') || show('export')) {
+    var presets = [['wtd', 'This week'], ['lw', 'Last week'], ['mtd', 'This month'], ['lm', 'Last month'], ['ytd', 'Year to date'], ['ptd', 'Programme to date'], ['custom', 'Custom']];
+    h += '<h2>Visits in a period</h2><div class="chips">' + presets.map(function (p) { return '<button class="chip' + (RANGE.preset === p[0] ? ' on' : '') + '" onclick="setPreset(\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') +
+      (RANGE.preset === 'custom' ? ' <input type="date" id="dFrom" value="' + (RANGE.from || '') + '" onchange="setCustom()"> to <input type="date" id="dTo" value="' + (RANGE.to || t) + '" onchange="setCustom()">' : '') + '</div>';
+    var ev = inRange(), comp = ev.filter(function (e) { return e.Outcome === 'Completed'; }), fail = ev.filter(function (e) { return e.Outcome !== 'Completed'; });
+    h += '<div class="grid">' + card('MOT visits', ev.length, rangeDates().label) + card('Completed', comp.length) + card('Not completed', fail.length) +
+      card('Blockages reported to COSC', ev.filter(function (e) { return truthy(e['Reported to COSC']); }).length) + '</div>';
+  }
+
+  if (show('findings')) {
+    h += '<div class="grid2" style="margin-top:12px"><div class="card"><div class="lbl" style="margin-bottom:6px">Chamber conditions found (sites)</div>' +
+      '<div class="chart" style="height:240px" id="cChamber" role="img" aria-label="Chamber conditions found during MOT visits in the selected period"></div></div>' +
+      '<div class="card"><div class="lbl" style="margin-bottom:6px">Why visits were not completed</div>' + reasons() + '</div></div>';
+  }
+
+  if (show('export')) {
+    var r = rangeDates();
+    h += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
+      (PDF ? '<a class="btn sec" target="_blank" href="' + esc(PDF) + '">Visit reports (PDF) by month</a>' : '') + '</div>';
+  }
+
+  if (VIEW === 'internal' && SECTION === 'all') h += internalHtml();
+  document.getElementById('app').innerHTML = h;
+  drawCharts();
+}
+
+function card(l, n, sub) { return '<div class="card"><div class="lbl">' + esc(l) + '</div><div class="num">' + fmt(n) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>'; }
+function row(l, v) { return '<div class="row"><span>' + esc(l) + '</span><b>' + esc(v) + '</b></div>'; }
+function reasons() {
+  var c = {}; inRange().filter(function (e) { return e.Outcome !== 'Completed'; }).forEach(function (e) { var k = String(e['MOT Failed Criteria'] || 'Not stated').trim() || 'Not stated'; c[k] = (c[k] || 0) + 1; });
+  var k = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; });
+  return k.length ? k.map(function (x) { return row(x, fmt(c[x])); }).join('') : '<div class="empty">None in this period.</div>';
+}
+
+function internalHtml() {
+  var ev = inRange(), joint = ev.filter(function (e) { return /^Joint/.test(e['Visit Type'] || ''); }).length;
+  var kit = ev.filter(function (e) { return String(e['Kit Swapped'] || '').trim(); }).length;
+  var h = '<div class="internal"><h2>Internal</h2><div class="grid">' + card('Joint visits (BAU same day)', joint, rangeDates().label) + card('MOT-only visits', ev.length - joint) +
+    card('Visits with kit swapped', kit) + card('BAU open - MOT to book separately', D.latest['BAU open - MOT separate'] || 0) + '</div>';
+  var tl = (D.byTl && D.byTl.rows) || [], th = (D.byTl && D.byTl.head) || [];
+  var latest = D.latest.day, rows = tl.map(function (r) { var o = {}; th.forEach(function (k, i) { o[k] = r[i]; }); return o; }).filter(function (o) { return String(o.Date).slice(0, 10) === latest; });
+  var by = {}; ev.forEach(function (e) { var k = e['MOT TL Assigned'] || '(unassigned)'; by[k] = by[k] || [0, 0]; if (e.Outcome === 'Completed') by[k][0]++; else by[k][1]++; });
+  h += '<h2>By MOT TL</h2><table><tr><th>MOT TL</th><th class="n">Sites needing MOT</th><th class="n">Completed (period)</th><th class="n">Not completed (period)</th></tr>' +
+    rows.map(function (o) { var b = by[o['MOT TL Assigned']] || [0, 0]; return '<tr><td>' + esc(o['MOT TL Assigned']) + '</td><td class="n">' + fmt(o['Assigned sites needing MOT']) + '</td><td class="n">' + b[0] + '</td><td class="n">' + b[1] + '</td></tr>'; }).join('') +
+    '</table></div>';
+  return h;
+}
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function drawCharts() {
+  Object.keys(charts).forEach(function (k) { charts[k].dispose(); }); charts = {};
+  if (!window.echarts) return;
+  var c = { blue: css('--blue'), ink: css('--ink'), muted: css('--muted'), line: css('--line'), card: css('--card'), bg: css('--bg'), ref: css('--ref'), grid: css('--grid') };
+  var font = '"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  function base(name) {
+    return {
+      animationDuration: 400, textStyle: { fontFamily: font, color: c.muted },
+      tooltip: { backgroundColor: c.card, borderColor: c.line, textStyle: { color: c.ink, fontSize: 12 }, confine: true },
+      toolbox: { right: 0, top: 0, itemSize: 13, iconStyle: { borderColor: c.muted }, emphasis: { iconStyle: { borderColor: c.blue } },
+        feature: { saveAsImage: { title: 'Save as image', name: name + ' ' + D.today, backgroundColor: c.bg, pixelRatio: 2 } } }
+    };
+  }
+
+  var wk = document.getElementById('cWeek');
+  if (wk) {
+    var weeks = [], counts = [], notDone = [];
+    for (var m = monday('2026-10-30'); m <= monday(D.today); m = addDays(m, 7)) {
+      var e = addDays(m, 6), inWeek = D.ev.filter(function (x) { return x.day >= m && x.day <= e; });
+      weeks.push(m); counts.push(inWeek.filter(function (x) { return x.Outcome === 'Completed'; }).length); notDone.push(inWeek.length - counts[counts.length - 1]);
+    }
+    var L = D.latest, req = Number(L['Days to target']) ? Math.round(Number(L['Initial MOT still needed']) / Number(L['Days to target']) * 70) / 10 : 0;
+    var o = base('MOTs per week');
+    o.grid = { left: 8, right: 12, top: 30, bottom: weeks.length > 26 ? 44 : 8, containLabel: true };
+    o.tooltip.trigger = 'axis'; o.tooltip.axisPointer = { type: 'shadow', shadowStyle: { color: 'rgba(127,127,127,0.12)' } };
+    o.tooltip.formatter = function (p) { var i = p[0].dataIndex; return 'Week of ' + dmy(weeks[i]) + '<br><b>' + counts[i] + '</b> completed' + (notDone[i] ? ', ' + notDone[i] + ' not completed' : '') + '<br>Required: ' + req + ' per week'; };
+    o.xAxis = { type: 'category', data: weeks.map(function (w) { return dmy(w).slice(0, 5); }), axisLine: { lineStyle: { color: c.line } }, axisTick: { show: false }, axisLabel: { color: c.muted } };
+    o.yAxis = { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.muted } };
+    o.series = [{ type: 'bar', name: 'Completed', data: counts, barMaxWidth: 24, itemStyle: { color: c.blue, borderRadius: [4, 4, 0, 0] },
+      emphasis: { itemStyle: { color: c.blue, opacity: 0.85 } },
+      markLine: req ? { symbol: 'none', silent: true, lineStyle: { color: c.ref, type: 'dashed', width: 2 },
+        label: { formatter: 'Required ' + req + '/wk', color: c.muted, position: 'insideEndTop' }, data: [{ yAxis: req }] } : undefined }];
+    o.yAxis.max = function (v) { return Math.max(v.max, req) * 1.1 | 0 || 1; };
+    if (weeks.length > 26) o.dataZoom = [{ type: 'inside', startValue: weeks.length - 26, endValue: weeks.length - 1 },
+      { type: 'slider', height: 16, bottom: 4, startValue: weeks.length - 26, endValue: weeks.length - 1, borderColor: c.line, fillerColor: 'rgba(127,127,127,0.15)',
+        handleStyle: { color: c.card, borderColor: c.muted }, textStyle: { color: c.muted }, dataBackground: { lineStyle: { color: c.ref }, areaStyle: { color: c.grid } } }];
+    charts.w = echarts.init(wk, null, { renderer: 'canvas' }); charts.w.setOption(o);
+  }
+
+  var ch = document.getElementById('cChamber');
+  if (ch) {
+    var ev = inRange(), names = { 'Minor Silt Build-Up': 'Minor silt build-up', 'Significant Silt Build-Up': 'Significant silt build-up', 'FOG (Fat, Oil & Grease) Present': 'FOG (fat, oil and grease)',
+      'Root Intrusion Observed': 'Root intrusion', 'Evidence of infiltration': 'Evidence of infiltration', 'Damage to the chamber': 'Damage to the chamber', 'Blockage Identified': 'Blockage identified' };
+    var vals = D.chamber.map(function (f) { return ev.filter(function (e) { return truthy(e[f]); }).length; });
+    var oc = base('Chamber conditions');
+    oc.grid = { left: 4, right: 36, top: 26, bottom: 4, containLabel: true };
+    oc.tooltip.trigger = 'item'; oc.tooltip.formatter = function (p) { return p.name + ': <b>' + p.value + '</b> of ' + ev.length + ' visits'; };
+    oc.xAxis = { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.muted } };
+    oc.yAxis = { type: 'category', inverse: true, data: D.chamber.map(function (f) { return names[f] || f; }), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: c.ink } };
+    oc.series = [{ type: 'bar', data: vals, barMaxWidth: 16, itemStyle: { color: c.blue, borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: c.ink } }];
+    charts.c = echarts.init(ch, null, { renderer: 'canvas' }); charts.c.setOption(oc);
+  }
+}
+
+var resizeT = null;
+window.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(function () { Object.keys(charts).forEach(function (k) { charts[k].resize(); }); }, 120); });
+
+function setPreset(p) { RANGE.preset = p; if (p === 'custom' && !RANGE.from) { RANGE.from = D.today.slice(0, 8) + '01'; RANGE.to = D.today; } render(); }
+function setCustom() { RANGE.from = document.getElementById('dFrom').value; RANGE.to = document.getElementById('dTo').value; render(); }
+
+load();
+</script>
+</body>
+</html>
