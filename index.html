@@ -60,7 +60,7 @@
 </head>
 <body>
 <div class="wrap" id="app"><div class="asof">Loading MOT programme data...</div></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+<script src="echarts.min.js"></script><!-- chart library (ECharts 5.5.1) kept next to this page, so browser tracking protection can't block it -->
 <script>
 // MOT DASHBOARD - PORTAL PAGE
 // A copy of the Apps Script dashboard that is hosted outside Google. It fetches its data from the web app
@@ -296,9 +296,11 @@ function internalHtml() {
 
 function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
+function chartNote(id, msg) { var el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty">' + esc(msg) + '</div>'; }
+
 function drawCharts() {
   Object.keys(charts).forEach(function (k) { charts[k].dispose(); }); charts = {};
-  if (!window.echarts) return;
+  if (!window.echarts) { chartNote('cWeek', 'Charts could not load in this browser.'); chartNote('cChamber', 'Charts could not load in this browser.'); return; }
   var c = { blue: css('--blue'), ink: css('--ink'), muted: css('--muted'), line: css('--line'), card: css('--card'), bg: css('--bg'), ref: css('--ref'), grid: css('--grid') };
   var font = '"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
   function base(name) {
@@ -311,6 +313,7 @@ function drawCharts() {
   }
 
   var wk = document.getElementById('cWeek');
+  if (wk && monday(D.today) < monday('2026-10-30')) { chartNote('cWeek', 'Weekly figures start from go-live on 30/10/2026.'); wk = null; }
   if (wk) {
     var weeks = [], counts = [], notDone = [];
     for (var m = monday('2026-10-30'); m <= monday(D.today); m = addDays(m, 7)) {
