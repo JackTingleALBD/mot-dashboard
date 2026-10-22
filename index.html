@@ -186,6 +186,64 @@ function exportCsv(from, to, btn) {
     .then(function () { btn.textContent = label; btn.disabled = false; });
 }
 
+// Excel export: the same columns and rows as the CSV (read from the CSV feed), with columns sized to fit, a bold frozen
+// header row and filters. Serials, SMS and other ID-like values stay as text (shown in full, leading zeros kept);
+// dates become real dates and plain readings become numbers. exceljs.min.js is only loaded the first time.
+var XL_TEXT_COLS = /serial|sms|imei|\bid\b|reference|cosc number|what3words|latlong/i;
+function loadExcelJs() {
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise(function (ok, bad) { var s = document.createElement('script'); s.src = 'exceljs.min.js'; s.onload = ok; s.onerror = function () { bad(new Error('the Excel library did not load')); }; document.head.appendChild(s); });
+}
+function parseCsv(t) {
+  var rows = [], row = [], f = '', q = false;
+  for (var i = 0; i < t.length; i++) {
+    var c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function xlKind(name, vals) { // 'date', 'number' or 'text' for a whole column
+  var v = vals.filter(function (x) { return x !== ''; });
+  if (!v.length || XL_TEXT_COLS.test(name)) return 'text';
+  if (v.every(function (x) { return /^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/.test(x); })) return 'date';
+  if (v.every(function (x) { return /^-?\d+(\.\d+)?$/.test(x) && !/^-?0\d/.test(x) && x.replace(/\D/g, '').length <= 11; })) return 'number';
+  return 'text';
+}
+function xlDate(x) { var m = x.match(/^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{2}):(\d{2}))?$/); return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0))); }
+function exportXlsx(from, to, btn) {
+  var label = btn.textContent; btn.textContent = 'Preparing Excel...'; btn.disabled = true;
+  Promise.all([loadExcelJs(), api({ export: 'csv', from: from, to: to })]).then(function (res) {
+    var all = parseCsv(res[1]), head = all[0] || [], rows = all.slice(1).filter(function (r) { return r.length > 1 || r[0] !== ''; });
+    var kinds = head.map(function (h, j) { return xlKind(h, rows.map(function (r) { return r[j] || ''; })); });
+    var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('MOT visits', { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = head.map(function (h, j) {
+      var w = Math.max(h.length, kinds[j] === 'date' ? 16 : 0);
+      rows.forEach(function (r) { w = Math.max(w, String(r[j] || '').length); });
+      return { header: h, width: Math.min(Math.max(w + 2, 8), 60),
+        style: kinds[j] === 'date' ? { numFmt: rows.some(function (r) { return / /.test(r[j] || ''); }) ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy' } : kinds[j] === 'text' ? { numFmt: '@' } : {} };
+    });
+    rows.forEach(function (r) {
+      ws.addRow(head.map(function (h, j) { var x = r[j] == null ? '' : r[j]; if (x === '') return null;
+        return kinds[j] === 'date' ? xlDate(x) : kinds[j] === 'number' ? +x : x; }));
+    });
+    ws.getRow(1).font = { bold: true };
+    if (head.length) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: head.length } };
+    return wb.xlsx.writeBuffer();
+  }).then(function (buf) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = 'MOT visits ' + (from || 'start') + ' to ' + (to || 'latest') + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }).catch(function (e) { alert('Could not export: ' + (e && e.message || e)); })
+    .then(function () { btn.textContent = label; btn.disabled = false; });
+}
+
 function prepare(d) {
   var f = d.events.fields;
   d.ev = d.events.rows.map(function (r) { var o = {}; f.forEach(function (k, i) { o[k] = r[i]; }); o.day = String(o.Date || o.DateTime).slice(0, 10); return o; });
@@ -279,6 +337,7 @@ function render() {
     var r = rangeDates();
     h += '<h2 id="secExport" style="margin-top:24px">Export Options <span class="h2sub">| ' + periodText(r) + '</span></h2>';
     h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
+      '<button class="btn" onclick="exportXlsx(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as Excel</button>' +
       (CERTS ? '<input class="sites" id="certSites" aria-label="Site IDs for the certificate download" placeholder="All sites, or Site IDs e.g. STWW10077, STWW11193" value="' + esc(CERT_SITES) + '" oninput="CERT_SITES = this.value">' +
         '<button class="btn sec" onclick="downloadCerts(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Download MOT certificates (' + esc(r.label.toLowerCase()) + ') as zip</button>' : '') +
       (PDF ? '<a class="btn sec" target="_blank" href="' + esc(PDF) + '">Visit reports (PDF) by month</a>' : '') + '</div>';
