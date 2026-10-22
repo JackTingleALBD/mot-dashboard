@@ -14,7 +14,21 @@
           --surface:#22272E; --on-blue:#0B1620; --ref:#7C8590; --grid:#262B32; color-scheme:dark; }
   * { box-sizing:border-box; }
   html,body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
-  .wrap { padding:14px 16px 24px; max-width:1400px; margin:0 auto; }
+  .wrap { padding:14px 16px 120px; max-width:1400px; margin:0 auto; flex:1; min-width:0; }
+  .shell { display:flex; align-items:flex-start; max-width:1600px; margin:0 auto; }
+  .snav { position:sticky; top:12px; flex:0 0 150px; margin:14px 0 0 16px; display:none; flex-direction:column; gap:6px; }
+  .snav .lbl { margin:0 0 2px 2px; }
+  .snav button { text-align:left; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; cursor:pointer; }
+  .snav button.on { border-color:var(--blue); color:var(--blue-d); background:var(--blue-l); }
+  @media (max-width:800px) {
+    .shell { display:block; }
+    .snav { position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; margin:0; padding:8px 16px; background:var(--bg); border-bottom:1px solid var(--line); }
+    .snav .lbl { display:none; }
+  }
+  .h2sub { font-weight:400; color:var(--muted); }
+  #secAnalysis, #secPeriod, #secExport { scroll-margin-top:12px; }
+  @media (max-width:800px) { #secAnalysis, #secPeriod, #secExport { scroll-margin-top:60px; } }
+  .link { background:none; border:0; padding:0; color:var(--blue-d); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
   .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
   .top h1 { font-size:17px; font-weight:600; margin:0; color:var(--ink); }
   .asof { font-size:12px; color:var(--muted); }
@@ -59,7 +73,13 @@
 </style>
 </head>
 <body>
+<div class="shell">
+<nav class="snav" id="snav" aria-label="Sections"><span class="lbl">Go to</span>
+  <button id="navA" onclick="goTo('secAnalysis')">MOT Analysis</button>
+  <button id="navE" onclick="goTo('secExport')">Export Options</button>
+</nav>
 <div class="wrap" id="app"><div class="asof">Loading MOT programme data...</div></div>
+</div>
 <script src="echarts.min.js"></script><!-- chart library (ECharts 5.5.1) kept next to this page, so browser tracking protection can't block it -->
 <script>
 // MOT DASHBOARD - PORTAL PAGE
@@ -77,6 +97,7 @@ var CFG = {
 };
 var KEY = CFG.key, VIEW = 'shared', TITLE = 'MOT programme', PDF = '', CERTS = null, CERT_SITES = '', SECTION = CFG.section;
 var PREVIEW_ALL = false, PREVIEW_MAX = 500;
+var PAGE_TITLE = 'STW EDM | Annual MOT Programme Analysis Dashboard', GO_LIVE = '2026-10-30';
 var D = null, RANGE = { preset: 'ptd', from: null, to: null }, charts = {};
 
 // Theme: the viewer's own choice (remembered in this browser) > ?t=dark|light in the embed address > their device setting
@@ -116,7 +137,7 @@ function load(onFail) {
     var j;
     try { j = JSON.parse(txt); } catch (e) { throw new Error('The data service did not return data. Check the web app is deployed with access "Anyone".'); }
     if (j.error) { showErr(j.error); return; }
-    VIEW = j.view; TITLE = j.title || TITLE; PDF = j.pdfUrl || ''; CERTS = j.certs || null; document.title = TITLE;
+    VIEW = j.view; TITLE = j.title || TITLE; PDF = j.pdfUrl || ''; CERTS = j.certs || null; TITLE = PAGE_TITLE; document.title = TITLE;
     D = prepare(j.data); render();
   }).catch(function (e) { (onFail || showErr)('Could not load the data: ' + (e && e.message || e)); });
 }
@@ -180,6 +201,13 @@ function inRange() {
   var r = rangeDates();
   return D.ev.filter(function (e) { return e.day >= r.from && e.day <= r.to; });
 }
+// MOT year runs 1 November to 31 October; the first one starts at go-live (30/10/2026).
+function motYear(t) {
+  if (t < GO_LIVE) return { from: '0000-01-01', to: '2027-10-31', label: dmy(GO_LIVE) + ' to 31/10/2027' }; // before go-live: test visits
+  var y = Number(t.slice(0, 4)) - (Number(t.slice(5, 7)) >= 11 ? 0 : 1), from = y + '-11-01';
+  if (from === '2026-11-01') from = GO_LIVE;
+  return { from: from, to: (y + 1) + '-10-31', label: dmy(from) + ' to 31/10/' + (y + 1) };
+}
 function rangeDates() {
   var t = D.today, p = RANGE.preset;
   if (p === 'custom') return { from: RANGE.from || '0000-01-01', to: RANGE.to || t, label: dmy(RANGE.from) + ' to ' + dmy(RANGE.to || t) };
@@ -193,7 +221,7 @@ function rangeDates() {
 
 function render() {
   var L = D.latest, t = D.today, h = '';
-  h += '<div class="top"><h1>' + esc(TITLE) + (VIEW === 'internal' ? '<span class="tag">Internal</span>' : '') + '</h1>' +
+  h += '<div class="top" id="secAnalysis"><h1>' + esc(TITLE) + (VIEW === 'internal' ? '<span class="tag">Internal</span>' : '') + '</h1>' +
        '<span class="right"><span class="asof">Updated ' + dmy(String(D.generated).slice(0, 10)) + ' ' + String(D.generated).slice(11, 16) + '</span>' +
        '<button class="tbtn" onclick="refreshData(this)" title="Load the latest figures">Refresh</button><button class="tbtn" onclick="toggleTheme()">' + (currentTheme() === 'dark' ? 'Light mode' : 'Dark mode') + '</button></span></div>';
   var show = function (s) { return SECTION === 'all' || SECTION === s; };
@@ -204,7 +232,11 @@ function render() {
     var pace7 = done(addDays(t, -6), t).length / 7, pace28 = done(addDays(t, -27), t).length / 28;
     var pct = scope ? initDone / scope * 100 : 0;
     var finish = pace7 > 0 ? addDays(t, Math.ceil(remaining / pace7)) : null, target = addDays(t, daysLeft);
-    var state = !D.ev.length ? ['', ''] : (finish && finish <= target ? ['ok', 'On track'] : pace7 > 0 ? ['warn', 'Behind required pace'] : ['bad', 'No MOTs in the last 7 days']);
+    // Projected finish (and the on-track pill) only once there are 6 weeks of visits, so a few early days don't skew it
+    var first = D.ev.filter(function (e) { return e.Outcome === 'Completed'; }).map(function (e) { return e.day; }).sort()[0];
+    var forecastFrom = first ? addDays(first, 42) : null, forecastReady = forecastFrom && forecastFrom <= t;
+    var finishText = forecastReady ? (finish ? dmy(finish) : '-') : forecastFrom ? 'Available from ' + dmy(forecastFrom) + ' (needs 6 weeks of visits)' : 'Available 6 weeks after the first MOT';
+    var state = !D.ev.length || !forecastReady ? ['', ''] : (finish && finish <= target ? ['ok', 'On track'] : pace7 > 0 ? ['warn', 'Behind required pace'] : ['bad', 'No MOTs in the last 7 days']);
     h += '<div class="card"><div class="top" style="margin:0"><span class="lbl">Initial MOTs completed</span>' + (state[0] ? '<span class="pill ' + state[0] + '">' + state[1] + '</span>' : '') + '</div>' +
       '<div class="hero"><span class="big">' + fmt(initDone) + '</span><span class="lbl">of ' + fmt(scope) + ' sites in scope (' + fmt(pct) + '%)</span></div>' +
       '<div class="bar"><div style="width:' + Math.min(pct, 100) + '%"></div></div>' +
@@ -212,10 +244,11 @@ function render() {
     h += '<div class="grid" style="margin-top:12px">' +
       card('Today', done(t, t).length) + card('Week to date', done(monday(t), t).length, 'since Mon ' + dmy(monday(t))) +
       card('Last week', done(addDays(monday(t), -7), addDays(monday(t), -1)).length) +
-      card('This month', done(t.slice(0, 8) + '01', t).length) + card('Year to date', done(t.slice(0, 4) + '-01-01', t).length) + '</div>';
+      card('This month', done(t.slice(0, 8) + '01', t).length) + card('Year to date', done(t.slice(0, 4) + '-01-01', t).length) +
+      card('MOT year (Nov to Nov)', done(motYear(t).from, t).length, motYear(t).label) + '</div>';
     h += '<div class="grid2" style="margin-top:12px"><div class="card"><div class="lbl" style="margin-bottom:6px">Forecast</div>' +
       row('Current pace (last 7 days)', fmt(pace7) + ' / day') + row('Current pace (last 28 days)', fmt(pace28) + ' / day') +
-      row('Needed to hit target', fmt(required) + ' / day') + row('Projected finish at current pace', finish ? dmy(finish) : '-') +
+      row('Needed to hit target', fmt(required) + ' / day') + row('Projected finish at current pace', finishText) +
       row('Days remaining', fmt(daysLeft)) + '</div>' +
       '<div class="card"><div class="lbl" style="margin-bottom:6px">Programme status</div>' +
       row('Awaiting initial MOT', fmt(remaining)) + row('Scheduled (MOT TL assigned)', fmt(L['MOT Scheduled'] || 0)) + row('Due (annual)', fmt(L['MOT Due'] || 0)) + row('Overdue', fmt(L['MOT Overdue'] || 0)) +
@@ -228,7 +261,7 @@ function render() {
 
   if (show('findings') || show('export')) {
     var presets = [['wtd', 'This week'], ['lw', 'Last week'], ['mtd', 'This month'], ['lm', 'Last month'], ['ytd', 'Year to date'], ['ptd', 'Programme to date'], ['custom', 'Custom']];
-    h += '<h2>Visits in a period</h2><div class="chips">' + presets.map(function (p) { return '<button class="chip' + (RANGE.preset === p[0] ? ' on' : '') + '" onclick="setPreset(\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') +
+    var pr = rangeDates(); h += '<h2 id="secPeriod">Visit Period <span class="h2sub">| ' + periodText(pr) + '</span></h2><div class="chips">' + presets.map(function (p) { return '<button class="chip' + (RANGE.preset === p[0] ? ' on' : '') + '" onclick="setPreset(\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') +
       (RANGE.preset === 'custom' ? ' <input type="date" id="dFrom" value="' + (RANGE.from || '') + '" onchange="setCustom()"> to <input type="date" id="dTo" value="' + (RANGE.to || t) + '" onchange="setCustom()">' : '') + '</div>';
     var ev = inRange(), comp = ev.filter(function (e) { return e.Outcome === 'Completed'; }), fail = ev.filter(function (e) { return e.Outcome !== 'Completed'; });
     h += '<div class="grid">' + card('MOT visits', ev.length, rangeDates().label) + card('Completed', comp.length) + card('Not completed', fail.length) +
@@ -243,7 +276,8 @@ function render() {
 
   if (show('export')) {
     var r = rangeDates();
-    h += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
+    h += '<h2 id="secExport" style="margin-top:24px">Export Options <span class="h2sub">| ' + periodText(r) + '</span> <button class="link" onclick="goTo(\'secPeriod\')">Change period</button></h2>';
+    h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
       (CERTS ? '<input class="sites" id="certSites" aria-label="Site IDs for the certificate download" placeholder="All sites, or Site IDs e.g. STWW10077, STWW11193" value="' + esc(CERT_SITES) + '" oninput="CERT_SITES = this.value">' +
         '<button class="btn sec" onclick="downloadCerts(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Download MOT certificates (' + esc(r.label.toLowerCase()) + ') as zip</button>' : '') +
       (PDF ? '<a class="btn sec" target="_blank" href="' + esc(PDF) + '">Visit reports (PDF) by month</a>' : '') + '</div>';
@@ -252,6 +286,8 @@ function render() {
 
   if (VIEW === 'internal' && SECTION === 'all') h += internalHtml();
   document.getElementById('app').innerHTML = h;
+  document.getElementById('snav').style.display = SECTION === 'all' ? 'flex' : 'none';
+  navState();
   drawCharts();
 }
 
@@ -271,6 +307,12 @@ function previewHtml(from, to) {
     '</table></div>';
 }
 function togglePreview() { PREVIEW_ALL = !PREVIEW_ALL; render(); }
+
+function periodText(r) {
+  var from = r.from;
+  if (from === '0000-01-01') { var days = D.ev.map(function (e) { return e.day; }).sort(); from = days[0] && days[0] < GO_LIVE ? days[0] : GO_LIVE; }
+  return dmy(from) + ' - ' + dmy(r.to);
+}
 
 function card(l, n, sub) { return '<div class="card"><div class="lbl">' + esc(l) + '</div><div class="num">' + fmt(n) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>'; }
 function row(l, v) { return '<div class="row"><span>' + esc(l) + '</span><b>' + esc(v) + '</b></div>'; }
@@ -344,7 +386,7 @@ function drawCharts() {
       'Root Intrusion Observed': 'Root intrusion', 'Evidence of infiltration': 'Evidence of infiltration', 'Damage to the chamber': 'Damage to the chamber', 'Blockage Identified': 'Blockage identified' };
     var vals = D.chamber.map(function (f) { return ev.filter(function (e) { return truthy(e[f]); }).length; });
     var oc = base('Chamber conditions');
-    oc.grid = { left: 4, right: 36, top: 26, bottom: 4, containLabel: true };
+    oc.grid = { left: 16, right: 36, top: 26, bottom: 4, containLabel: true };
     oc.tooltip.trigger = 'item'; oc.tooltip.formatter = function (p) { return p.name + ': <b>' + p.value + '</b> of ' + ev.length + ' visits'; };
     oc.xAxis = { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.muted } };
     oc.yAxis = { type: 'category', inverse: true, data: D.chamber.map(function (f) { return names[f] || f; }), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: c.ink } };
@@ -355,6 +397,17 @@ function drawCharts() {
 
 var resizeT = null;
 window.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(function () { Object.keys(charts).forEach(function (k) { charts[k].resize(); }); }, 120); });
+
+// Side nav: jump between the analysis and the export options, highlighting where you are
+function goTo(id) { var el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function navState() {
+  var ex = document.getElementById('secExport'), a = document.getElementById('navA'), e = document.getElementById('navE');
+  if (!ex || !a) return;
+  var atEnd = scrollY > 0 && scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
+  var inExport = atEnd || ex.getBoundingClientRect().top < window.innerHeight * 0.5;
+  a.className = inExport ? '' : 'on'; e.className = inExport ? 'on' : '';
+}
+window.addEventListener('scroll', navState, { passive: true });
 
 function setPreset(p) { RANGE.preset = p; if (p === 'custom' && !RANGE.from) { RANGE.from = D.today.slice(0, 8) + '01'; RANGE.to = D.today; } render(); }
 function setCustom() { RANGE.from = document.getElementById('dFrom').value; RANGE.to = document.getElementById('dTo').value; render(); }
