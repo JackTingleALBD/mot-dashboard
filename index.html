@@ -291,10 +291,11 @@ function render() {
     var pace7 = done(addDays(t, -6), t).length / 7, pace28 = done(addDays(t, -27), t).length / 28;
     var pct = scope ? initDone / scope * 100 : 0;
     var finish = pace7 > 0 ? addDays(t, Math.ceil(remaining / pace7)) : null, target = addDays(t, daysLeft);
-    // Projected finish (and the on-track pill) only once there are 6 weeks of visits, so a few early days don't skew it
-    var first = D.ev.filter(function (e) { return e.Outcome === 'Completed'; }).map(function (e) { return e.day; }).sort()[0];
-    var forecastFrom = first ? addDays(first, 42) : null, forecastReady = forecastFrom && forecastFrom <= t;
-    var finishText = forecastReady ? (finish ? dmy(finish) : '-') : forecastFrom ? 'Available from ' + dmy(forecastFrom) + ' (needs 6 weeks of visits)' : 'Available 6 weeks after the first MOT';
+    // Projected finish (and the on-track pill) only once there are 6 weeks of visits, so a few early days don't skew it.
+    // Counts from go-live (or the first completed MOT after it, if later); test visits before go-live are ignored.
+    var first = D.ev.filter(function (e) { return e.Outcome === 'Completed' && e.day >= GO_LIVE; }).map(function (e) { return e.day; }).sort()[0] || GO_LIVE;
+    var forecastFrom = addDays(first, 42), forecastReady = forecastFrom <= t;
+    var finishText = forecastReady ? (finish ? dmy(finish) : '-') : 'Available from ' + dmy(forecastFrom) + ' (needs 6 weeks of visits)';
     var state = !D.ev.length || !forecastReady ? ['', ''] : (finish && finish <= target ? ['ok', 'On track'] : pace7 > 0 ? ['warn', 'Behind required pace'] : ['bad', 'No MOTs in the last 7 days']);
     h += '<div class="card"><div class="top" style="margin:0"><span class="lbl">Initial MOTs completed</span>' + (state[0] ? '<span class="pill ' + state[0] + '">' + state[1] + '</span>' : '') + '</div>' +
       '<div class="hero"><span class="big">' + fmt(initDone) + '</span><span class="lbl">of ' + fmt(scope) + ' sites in scope (' + fmt(pct) + '%)</span></div>' +
