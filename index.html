@@ -30,7 +30,6 @@
   .h2sub { font-weight:400; color:var(--muted); }
   #secAnalysis, #secPeriod, #secExport { scroll-margin-top:12px; }
   @media (max-width:800px) { #secAnalysis, #secPeriod, #secExport { scroll-margin-top:60px; } }
-  .link { background:none; border:0; padding:0; color:var(--blue-d); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
   .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
   .top h1 { font-size:17px; font-weight:600; margin:0; color:var(--ink); }
   .asof { font-size:12px; color:var(--muted); }
@@ -278,7 +277,7 @@ function render() {
 
   if (show('export')) {
     var r = rangeDates();
-    h += '<h2 id="secExport" style="margin-top:24px">Export Options <span class="h2sub">| ' + periodText(r) + '</span> <button class="link" onclick="goTo(\'secPeriod\')">Change period</button></h2>';
+    h += '<h2 id="secExport" style="margin-top:24px">Export Options <span class="h2sub">| ' + periodText(r) + '</span></h2>';
     h += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
       (CERTS ? '<input class="sites" id="certSites" aria-label="Site IDs for the certificate download" placeholder="All sites, or Site IDs e.g. STWW10077, STWW11193" value="' + esc(CERT_SITES) + '" oninput="CERT_SITES = this.value">' +
         '<button class="btn sec" onclick="downloadCerts(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Download MOT certificates (' + esc(r.label.toLowerCase()) + ') as zip</button>' : '') +
