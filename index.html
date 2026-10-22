@@ -97,7 +97,7 @@ var CFG = {
   section: /^(summary|trend|findings|export)$/.test(QS.get('s') || '') ? QS.get('s') : 'all'
 };
 var KEY = CFG.key, VIEW = 'shared', TITLE = 'MOT programme', PDF = '', CERTS = null, CERT_SITES = '', SECTION = CFG.section;
-var PREVIEW_ALL = false, PREVIEW_MAX = 500;
+var PREVIEW_ALL = false, PREVIEW_MAX = 500, PV = {}; // PV: export previews from the server, by period
 var PAGE_TITLE = 'STW EDM | Annual MOT Programme Analysis Dashboard', GO_LIVE = '2026-10-30';
 var D = null, RANGE = { preset: 'ptd', from: null, to: null }, charts = {};
 
@@ -145,7 +145,7 @@ function load(onFail) {
 
 // Refresh button: fetches the latest stats again and keeps the chosen period. On failure the current figures stay.
 function refreshData(btn) {
-  btn.textContent = 'Refreshing...'; btn.disabled = true;
+  btn.textContent = 'Refreshing...'; btn.disabled = true; PV = {};
   load(function (msg) { alert(msg); btn.textContent = 'Refresh'; btn.disabled = false; });
 }
 
@@ -292,22 +292,31 @@ function render() {
   drawCharts();
 }
 
-// Export preview: the same rows, columns and order as the CSV (same date rule as dashCsv_ in Code.gs).
+// Export preview: built by the server from the same columns, headings and rows as the CSV (Export Columns tab),
+// fetched once per period and kept until Refresh.
 function previewHtml(from, to) {
-  var f = D.events.fields, di = f.indexOf('Date'), lo = from || '0000-00-00', hi = to || '9999-99-99';
-  var rows = D.events.rows.filter(function (r) { var d = String(r[di]).slice(0, 10); return d >= lo && d <= hi; });
-  var limit = PREVIEW_ALL ? PREVIEW_MAX : 10, shown = rows.slice(0, limit);
-  var note = !rows.length ? 'No visits in this period, so the file would only have the column headings.'
-    : rows.length + ' visit' + (rows.length === 1 ? '' : 's') + ' and ' + f.length + ' columns. ' +
-      (shown.length < rows.length ? 'Showing the first ' + shown.length + '.' : 'Showing all of them.');
-  var toggle = rows.length > 10 ? '<button class="tbtn" onclick="togglePreview()">' +
-    (PREVIEW_ALL ? 'Show first 10' : 'Show ' + (rows.length > PREVIEW_MAX ? 'first ' + PREVIEW_MAX : 'all ' + rows.length)) + '</button>' : '';
-  return '<div class="pvhead"><span class="lbl"><b>Preview of the export.</b> ' + esc(note) + '</span>' + toggle + '</div>' +
+  var key = from + '|' + to;
+  if (!PV[key]) { PV[key] = { loading: true }; api({ format: 'json', export: 'preview', from: from, to: to }).then(function (txt) { return JSON.parse(txt); })
+    .catch(function (e) { return { error: 'Could not load the preview: ' + (e && e.message || e) }; })
+    .then(function (j) { PV[key] = j; var box = document.getElementById('pvBox'); if (box && box.getAttribute('data-k') === key) box.innerHTML = previewBody(j); }); }
+  return '<div id="pvBox" data-k="' + esc(key) + '">' + previewBody(PV[key]) + '</div>';
+}
+function previewBody(p) {
+  var head = '<div class="pvhead"><span class="lbl"><b>Preview of the export.</b> ';
+  if (p.loading) return head + 'Loading...</span></div>';
+  if (p.error) return head + esc(p.error) + '</span></div>';
+  var f = p.head, rows = p.rows, total = p.total, limit = PREVIEW_ALL ? PREVIEW_MAX : 10, shown = rows.slice(0, limit);
+  var note = !total ? 'No visits in this period, so the file would only have the column headings.'
+    : total + ' visit' + (total === 1 ? '' : 's') + ' and ' + f.length + ' columns. ' +
+      (shown.length < total ? 'Showing the first ' + shown.length + '.' : 'Showing all of them.');
+  var toggle = total > 10 ? '<button class="tbtn" onclick="togglePreview()">' +
+    (PREVIEW_ALL ? 'Show first 10' : 'Show ' + (total > PREVIEW_MAX ? 'first ' + PREVIEW_MAX : 'all ' + total)) + '</button>' : '';
+  return head + esc(note) + '</span>' + toggle + '</div>' +
     '<div class="pv"><table><tr>' + f.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr>' +
     shown.map(function (r) { return '<tr>' + r.map(function (x) { return '<td>' + esc(x) + '</td>'; }).join('') + '</tr>'; }).join('') +
     '</table></div>';
 }
-function togglePreview() { PREVIEW_ALL = !PREVIEW_ALL; render(); }
+function togglePreview() { PREVIEW_ALL = !PREVIEW_ALL; var box = document.getElementById('pvBox'); if (box) box.innerHTML = previewBody(PV[box.getAttribute('data-k')]); }
 
 function periodText(r) {
   var from = r.from;
