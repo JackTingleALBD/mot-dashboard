@@ -6,6 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>MOT programme</title>
 <style>
+  /* Inter (SIL Open Font License), kept next to this page so it looks the same on every computer */
+  @font-face { font-family:Inter; src:url('inter.woff2') format('woff2'); font-weight:100 900; font-style:normal; font-display:swap; }
   :root { --blue:#1E88E5; --blue-d:#1565C0; --blue-l:#E3F2FD; --ink:#2b2b2b; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --card:#f7f9fb;
           --ok:#2e7d32; --ok-l:#e8f5e9; --warn:#b26a00; --warn-l:#fff4e0; --bad:#c62828; --bad-l:#fdecea;
           --surface:#ffffff; --on-blue:#ffffff; --ref:#9ca3af; --grid:#eef0f3; color-scheme:light; }
@@ -13,7 +15,7 @@
           --ok:#7BD88F; --ok-l:#1E3324; --warn:#F0B45A; --warn-l:#3A2C14; --bad:#FF8A80; --bad-l:#3D1D1D;
           --surface:#22272E; --on-blue:#0B1620; --ref:#7C8590; --grid:#262B32; color-scheme:dark; }
   * { box-sizing:border-box; }
-  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
   .wrap { padding:14px 16px 120px; max-width:1400px; margin:0 auto; flex:1; min-width:0; }
   .shell { display:flex; align-items:flex-start; max-width:1600px; margin:0 auto; }
   .snav { position:sticky; top:12px; flex:0 0 150px; margin:14px 0 0 16px; display:none; flex-direction:column; gap:6px; }
@@ -344,7 +346,7 @@ function drawCharts() {
   Object.keys(charts).forEach(function (k) { charts[k].dispose(); }); charts = {};
   if (!window.echarts) { chartNote('cWeek', 'Charts could not load in this browser.'); chartNote('cChamber', 'Charts could not load in this browser.'); return; }
   var c = { blue: css('--blue'), ink: css('--ink'), muted: css('--muted'), line: css('--line'), card: css('--card'), bg: css('--bg'), ref: css('--ref'), grid: css('--grid') };
-  var font = '"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  var font = 'Inter,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
   function base(name) {
     return {
       animationDuration: 400, textStyle: { fontFamily: font, color: c.muted },
@@ -413,6 +415,8 @@ function setPreset(p) { RANGE.preset = p; if (p === 'custom' && !RANGE.from) { R
 function setCustom() { RANGE.from = document.getElementById('dFrom').value; RANGE.to = document.getElementById('dTo').value; render(); }
 
 load();
+// Redraw the charts once the Inter font has arrived, so their labels use it too
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (D) drawCharts(); });
 </script>
 </body>
 </html>
