@@ -38,6 +38,7 @@
   .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0 10px; }
   .chip { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:14px; padding:4px 10px; font-size:12px; cursor:pointer; }
   .chip.on { background:var(--blue); border-color:var(--blue); color:var(--on-blue); }
+  input.sites { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; font-family:inherit; width:min(320px, 100%); }
   input[type=date] { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-size:12px; font-family:inherit; }
   .btn { display:inline-block; background:var(--blue); color:var(--on-blue); border-radius:6px; padding:7px 14px; font-size:13px; text-decoration:none; border:0; cursor:pointer; }
   .btn.sec { background:var(--surface); color:var(--blue-d); border:1px solid var(--blue); }
@@ -51,6 +52,10 @@
   .tbtn:hover { color:var(--ink); }
   .right { display:flex; align-items:center; gap:10px; }
   .internal { border-left:3px solid var(--warn); padding-left:10px; }
+  .pv { overflow:auto; max-height:380px; border:1px solid var(--line); border-radius:8px; margin-top:8px; background:var(--surface); }
+  .pv table { font-size:12px; } .pv th, .pv td { white-space:nowrap; padding:5px 8px; }
+  .pv th { position:sticky; top:0; background:var(--card); z-index:1; }
+  .pvhead { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-top:14px; }
 </style>
 </head>
 <body>
@@ -70,7 +75,8 @@ var CFG = {
   theme: /^(dark|light)$/.test(QS.get('t') || '') ? QS.get('t') : 'auto',
   section: /^(summary|trend|findings|export)$/.test(QS.get('s') || '') ? QS.get('s') : 'all'
 };
-var KEY = CFG.key, VIEW = 'shared', TITLE = 'MOT programme', PDF = '', SECTION = CFG.section;
+var KEY = CFG.key, VIEW = 'shared', TITLE = 'MOT programme', PDF = '', CERTS = null, CERT_SITES = '', SECTION = CFG.section;
+var PREVIEW_ALL = false, PREVIEW_MAX = 500;
 var D = null, RANGE = { preset: 'ptd', from: null, to: null }, charts = {};
 
 // Theme: the viewer's own choice (remembered in this browser) > ?t=dark|light in the embed address > their device setting
@@ -104,15 +110,46 @@ function api(params) {
     .then(function (r) { if (!r.ok) throw new Error('The data service returned ' + r.status); return r.text(); });
 }
 
-function load() {
+function load(onFail) {
   if (!KEY) { showErr('This link is not valid. Please open the dashboard from the portal.'); return; }
-  api({ format: 'json' }).then(function (txt) {
+  return api({ format: 'json' }).then(function (txt) {
     var j;
     try { j = JSON.parse(txt); } catch (e) { throw new Error('The data service did not return data. Check the web app is deployed with access "Anyone".'); }
     if (j.error) { showErr(j.error); return; }
-    VIEW = j.view; TITLE = j.title || TITLE; PDF = j.pdfUrl || ''; document.title = TITLE;
+    VIEW = j.view; TITLE = j.title || TITLE; PDF = j.pdfUrl || ''; CERTS = j.certs || null; document.title = TITLE;
     D = prepare(j.data); render();
-  }).catch(function (e) { showErr('Could not load the data: ' + (e && e.message || e)); });
+  }).catch(function (e) { (onFail || showErr)('Could not load the data: ' + (e && e.message || e)); });
+}
+
+// Refresh button: fetches the latest stats again and keeps the chosen period. On failure the current figures stay.
+function refreshData(btn) {
+  btn.textContent = 'Refreshing...'; btn.disabled = true;
+  load(function (msg) { alert(msg); btn.textContent = 'Refresh'; btn.disabled = false; });
+}
+
+// Certificates (PDF) for visits in the period, as one zip from the certificate service. Optionally only some sites:
+// the Site ID box takes one or more IDs separated by commas or spaces (blank = all sites). Asks the service how many
+// there are first, so nobody starts a multi-GB download by mistake. The zip itself streams straight to the browser.
+function downloadCerts(from, to, btn) {
+  if (!CERTS) return;
+  var sites = CERT_SITES.toUpperCase().split(/[\s,;]+/).filter(Boolean);
+  var bad = sites.filter(function (s) { return !/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(s); });
+  if (bad.length) { alert('These are not Site IDs: ' + bad.join(', ') + '. Separate IDs with commas or spaces.'); return; }
+  var label = btn.textContent, base = CERTS.url + '/certificates', q = '?k=' + encodeURIComponent(CERTS.key) +
+    (from ? '&from=' + from : '') + (to ? '&to=' + to : '') + (sites.length ? '&sites=' + encodeURIComponent(sites.join(',')) : '');
+  btn.textContent = 'Checking...'; btn.disabled = true;
+  fetch(base + q, { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.ok) throw new Error(j.error === 'bad_site' ? 'a Site ID was not recognised' : j.error || 'the certificate service refused the request');
+    var period = (from ? dmy(from) : 'the start') + ' to ' + (to ? dmy(to) : 'the latest');
+    var who = !sites.length ? '' : sites.length === 1 ? ' at ' + sites[0] : ' at ' + sites.length + ' sites';
+    var none = (j.sitesNotFound || []).length && j.count ? '\n\nNo certificates for: ' + j.sitesNotFound.join(', ') : '';
+    if (!j.count) { alert('There are no certificates for visits' + who + ' from ' + period + '.'); return; }
+    var mb = j.bytes / 1048576, size = mb >= 1024 ? fmt(mb / 1024) + ' GB' : fmt(Math.max(mb, 0.1)) + ' MB';
+    if (!confirm('Download ' + j.count + ' certificate' + (j.count === 1 ? '' : 's') + ' (' + size + ') for visits' + who + ' from ' + period + ' as one zip file?' + none)) return;
+    var a = document.createElement('a'); a.href = base + '.zip' + q; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+  }).catch(function (e) { alert('Could not download the certificates: ' + (e && e.message || e)); })
+    .then(function () { btn.textContent = label; btn.disabled = false; });
 }
 
 function exportCsv(from, to, btn) {
@@ -158,7 +195,7 @@ function render() {
   var L = D.latest, t = D.today, h = '';
   h += '<div class="top"><h1>' + esc(TITLE) + (VIEW === 'internal' ? '<span class="tag">Internal</span>' : '') + '</h1>' +
        '<span class="right"><span class="asof">Updated ' + dmy(String(D.generated).slice(0, 10)) + ' ' + String(D.generated).slice(11, 16) + '</span>' +
-       '<button class="tbtn" onclick="toggleTheme()">' + (currentTheme() === 'dark' ? 'Light mode' : 'Dark mode') + '</button></span></div>';
+       '<button class="tbtn" onclick="refreshData(this)" title="Load the latest figures">Refresh</button><button class="tbtn" onclick="toggleTheme()">' + (currentTheme() === 'dark' ? 'Light mode' : 'Dark mode') + '</button></span></div>';
   var show = function (s) { return SECTION === 'all' || SECTION === s; };
 
   if (show('summary')) {
@@ -207,13 +244,33 @@ function render() {
   if (show('export')) {
     var r = rangeDates();
     h += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="exportCsv(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Export visits (' + esc(r.label.toLowerCase()) + ') as CSV</button>' +
+      (CERTS ? '<input class="sites" id="certSites" aria-label="Site IDs for the certificate download" placeholder="All sites, or Site IDs e.g. STWW10077, STWW11193" value="' + esc(CERT_SITES) + '" oninput="CERT_SITES = this.value">' +
+        '<button class="btn sec" onclick="downloadCerts(\'' + (r.from === '0000-01-01' ? '' : r.from) + '\', \'' + r.to + '\', this)">Download MOT certificates (' + esc(r.label.toLowerCase()) + ') as zip</button>' : '') +
       (PDF ? '<a class="btn sec" target="_blank" href="' + esc(PDF) + '">Visit reports (PDF) by month</a>' : '') + '</div>';
+    h += previewHtml(r.from === '0000-01-01' ? '' : r.from, r.to);
   }
 
   if (VIEW === 'internal' && SECTION === 'all') h += internalHtml();
   document.getElementById('app').innerHTML = h;
   drawCharts();
 }
+
+// Export preview: the same rows, columns and order as the CSV (same date rule as dashCsv_ in Code.gs).
+function previewHtml(from, to) {
+  var f = D.events.fields, di = f.indexOf('Date'), lo = from || '0000-00-00', hi = to || '9999-99-99';
+  var rows = D.events.rows.filter(function (r) { var d = String(r[di]).slice(0, 10); return d >= lo && d <= hi; });
+  var limit = PREVIEW_ALL ? PREVIEW_MAX : 10, shown = rows.slice(0, limit);
+  var note = !rows.length ? 'No visits in this period, so the file would only have the column headings.'
+    : rows.length + ' visit' + (rows.length === 1 ? '' : 's') + ' and ' + f.length + ' columns. ' +
+      (shown.length < rows.length ? 'Showing the first ' + shown.length + '.' : 'Showing all of them.');
+  var toggle = rows.length > 10 ? '<button class="tbtn" onclick="togglePreview()">' +
+    (PREVIEW_ALL ? 'Show first 10' : 'Show ' + (rows.length > PREVIEW_MAX ? 'first ' + PREVIEW_MAX : 'all ' + rows.length)) + '</button>' : '';
+  return '<div class="pvhead"><span class="lbl"><b>Preview of the export.</b> ' + esc(note) + '</span>' + toggle + '</div>' +
+    '<div class="pv"><table><tr>' + f.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr>' +
+    shown.map(function (r) { return '<tr>' + r.map(function (x) { return '<td>' + esc(x) + '</td>'; }).join('') + '</tr>'; }).join('') +
+    '</table></div>';
+}
+function togglePreview() { PREVIEW_ALL = !PREVIEW_ALL; render(); }
 
 function card(l, n, sub) { return '<div class="card"><div class="lbl">' + esc(l) + '</div><div class="num">' + fmt(n) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>'; }
 function row(l, v) { return '<div class="row"><span>' + esc(l) + '</span><b>' + esc(v) + '</b></div>'; }
