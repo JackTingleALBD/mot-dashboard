@@ -87,7 +87,10 @@
 // A copy of the Apps Script dashboard that is hosted outside Google. It fetches its data from the web app
 // WITHOUT the viewer's Google sign-in (credentials: 'omit'), so it works however many Google accounts the
 // viewer is signed into. Only change needed: paste the web app address (ends /exec) below.
-var API = 'https://script.google.com/macros/s/AKfycbxXVV6KU5LthNMI5rnWDi4axt0xYcUMqQ71hRzukFBy1hMNhzc562dOJZ3kJXL9USIV4g/exec';
+// On Azure (any host but github.io) the page asks its own relay at /api/data instead (api/data/index.js), which
+// fetches the same feed server-side, so viewers whose network blocks Google never contact Google.
+var API_GOOGLE = 'https://script.google.com/macros/s/AKfycbxXVV6KU5LthNMI5rnWDi4axt0xYcUMqQ71hRzukFBy1hMNhzc562dOJZ3kJXL9USIV4g/exec';
+var API = /\.github\.io$/i.test(location.hostname) ? API_GOOGLE : '/api/data';
 
 // Page address: ?k=<access key>  optional &s=summary|trend|findings|export  &t=dark|light
 var QS = new URLSearchParams(location.search);
