@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>STW EDM | Telemetry List</title>
+<style>
+  /* Inter (SIL Open Font License), kept next to this page so it looks the same on every computer */
+  @font-face { font-family:Inter; src:url('inter.woff2') format('woff2'); font-weight:100 900; font-style:normal; font-display:swap; }
+  :root { --blue:#1E88E5; --blue-d:#1565C0; --blue-l:#E3F2FD; --ink:#2b2b2b; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --card:#f7f9fb;
+          --ok:#2e7d32; --ok-l:#e8f5e9; --warn:#b26a00; --warn-l:#fff4e0; --bad:#c62828; --bad-l:#fdecea; --red2:#e65100; --red2-l:#fff0e6;
+          --surface:#ffffff; --on-blue:#ffffff; color-scheme:light; }
+  :root[data-theme=dark] { --blue:#4BA3F5; --blue-d:#8EC5FF; --blue-l:#1D3550; --ink:#E6E8EB; --muted:#9AA3AD; --line:#2C323A; --bg:#121417; --card:#1B1F24;
+          --ok:#7BD88F; --ok-l:#1E3324; --warn:#F0B45A; --warn-l:#3A2C14; --bad:#FF8A80; --bad-l:#3D1D1D; --red2:#FFA060; --red2-l:#3A2516;
+          --surface:#22272E; --on-blue:#0B1620; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
+  .wrap { padding:14px 16px 80px; max-width:1400px; margin:0 auto; }
+  header { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
+  h1 { font-size:20px; margin:0; font-weight:650; }
+  .sub { color:var(--muted); font-size:13px; }
+  .stale { color:var(--bad); font-weight:600; }
+  .tabs { display:flex; gap:6px; margin:14px 0 10px; border-bottom:1px solid var(--line); }
+  .tabs button { background:none; border:0; border-bottom:2px solid transparent; padding:8px 12px; font:inherit; font-weight:600; color:var(--muted); cursor:pointer; }
+  .tabs button.on { color:var(--blue-d); border-bottom-color:var(--blue); }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin:10px 0; }
+  .tile { background:var(--card); border:1px solid var(--line); border-left:5px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; text-align:left; font:inherit; color:inherit; }
+  .tile.on { outline:2px solid var(--blue); }
+  .tile .n { font-size:28px; font-weight:700; line-height:1.1; }
+  .tile .l { font-size:13px; color:var(--muted); margin-top:2px; }
+  .g24 { border-left-color:var(--bad); } .g24 .n { color:var(--bad); }
+  .g18 { border-left-color:var(--red2); } .g18 .n { color:var(--red2); }
+  .g12 { border-left-color:var(--warn); } .g12 .n { color:var(--warn); }
+  .gact { border-left-color:var(--ok); } .gact .n { color:var(--ok); }
+  .gmut { border-left-color:var(--muted); }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+  .chip { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:16px; padding:5px 11px; font:inherit; font-size:13px; cursor:pointer; }
+  .chip.on { background:var(--blue-l); border-color:var(--blue); color:var(--blue-d); font-weight:600; }
+  .lbl { font-size:12px; color:var(--muted); margin-left:6px; }
+  input[type=search] { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:8px; padding:6px 10px; font:inherit; min-width:200px; }
+  .btn { border:1px solid var(--blue); background:var(--blue); color:var(--on-blue); border-radius:8px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .spacer { flex:1; }
+  .tablewrap { overflow:auto; border:1px solid var(--line); border-radius:10px; max-height:70vh; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { padding:7px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th { position:sticky; top:0; background:var(--card); font-weight:600; cursor:pointer; user-select:none; z-index:1; }
+  th.sorted::after { content:' \25BE'; } th.sorted.asc::after { content:' \25B4'; }
+  td.wr { white-space:normal; min-width:220px; }
+  tr:hover td { background:var(--blue-l); }
+  .pill { display:inline-block; border-radius:10px; padding:1px 8px; font-size:12px; font-weight:600; }
+  .p24 { background:var(--bad-l); color:var(--bad); } .p18 { background:var(--red2-l); color:var(--red2); } .p12 { background:var(--warn-l); color:var(--warn); }
+  .pyes { background:var(--ok-l); color:var(--ok); } .pno { background:var(--card); color:var(--muted); border:1px solid var(--line); }
+  .pclosed { background:var(--card); color:var(--muted); border:1px solid var(--line); }
+  .pover { background:var(--bad-l); color:var(--bad); }
+  .empty { padding:30px; text-align:center; color:var(--muted); }
+  .note { font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .msg { padding:40px 16px; text-align:center; color:var(--muted); font-size:15px; }
+  .warn { background:var(--warn-l); color:var(--warn); border-radius:8px; padding:8px 12px; margin:8px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>STW EDM | Telemetry List</h1>
+    <div class="sub" id="updated">Loading…</div>
+  </header>
+  <div id="app"><div class="msg">Loading the telemetry list…</div></div>
+</div>
+<script>
+// Data: on Azure the page asks its own relay at /api/telemetry (api/telemetry/index.js), which fetches the
+// Telemetry Feed web app from Azure's servers, so the viewer's browser never contacts Google.
+// On github.io it reads the web app directly (paste its address below).
+var API_GOOGLE = 'PASTE_TELEMETRY_WEB_APP_URL_ENDING_/exec';
+var API = /\.github\.io$/i.test(location.hostname) ? API_GOOGLE : '/api/telemetry';
+var params = new URLSearchParams(location.search);
+var KEY = params.get('k') || '';
+var REFRESH_MS = 5 * 60 * 1000;
+var STALE_MIN = 90;
+if ((params.get('t') || '') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+var state = { tab: params.get('v') === 'jobs' ? 'jobs' : 'gates', gate: 'all', cls: 'all', onSched: 'all', jobGate: 'open', q: '',
+  sort: { gates: { key: 'hours', asc: false }, jobs: { key: 'raised', asc: false } } };
+var data = null;
+
+var GATES = [
+  { key: '24 h+', cls: 'g24', pill: 'p24', label: 'Quiet 24 h or more' },
+  { key: '18-24 h', cls: 'g18', pill: 'p18', label: 'Quiet 18 to 24 h' },
+  { key: '12-18 h', cls: 'g12', pill: 'p12', label: 'Quiet 12 to 18 h' }
+];
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function parseLocal(s) { var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) : null; }
+function fmt(s) { var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ''); return m ? m[3] + '/' + m[2] + ' ' + m[4] + ':' + m[5] : esc(s || ''); }
+function fmtFull(s) { var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : (s || ''); }
+function hrs(h) { return h == null || h === '' ? '' : Number(h).toFixed(1) + ' h'; }
+function gatePill(g) { var x = GATES.filter(function (G) { return G.key === g; })[0]; return x ? '<span class="pill ' + x.pill + '">' + esc(g) + '</span>' : esc(g || ''); }
+function yesNo(b) { return b ? '<span class="pill pyes">Yes</span>' : '<span class="pill pno">No</span>'; }
+function slaCell(s) { return /overdue|breach/i.test(s || '') ? '<span class="pill pover">' + esc(s) + '</span>' : esc(s || ''); }
+
+function load() {
+  if (!KEY) { show('<div class="msg">This link is not valid.</div>'); document.getElementById('updated').textContent = ''; return; }
+  fetch(API + '?k=' + encodeURIComponent(KEY), { credentials: 'omit', cache: 'no-store', redirect: 'follow' })
+    .then(function (r) { return r.text().then(function (t) { var j; try { j = JSON.parse(t); } catch (e) { throw new Error('The data service returned ' + r.status); } return j; }); })
+    .then(function (j) {
+      if (j.error) { show('<div class="msg">' + esc(j.error) + '</div>'); return; }
+      data = j; render();
+    })
+    .catch(function (e) { if (!data) show('<div class="msg">Could not load the list: ' + esc(e.message) + '</div>'); else setUpdated(' (last refresh failed, retrying)'); });
+}
+function show(html) { document.getElementById('app').innerHTML = html; }
+
+function setUpdated(extra) {
+  var el = document.getElementById('updated');
+  var q = parseLocal(data.quietUpdatedAt);
+  var age = q ? Math.round((Date.now() - q.getTime()) / 60000) : null;
+  var html = 'Call-in times from HWM, updated ' + (data.quietUpdatedAt ? fmtFull(data.quietUpdatedAt) : 'never');
+  if (age != null && age > STALE_MIN) html = '<span class="stale">' + html + ' (over ' + STALE_MIN + ' minutes old)</span>';
+  html += ' · page refreshed ' + fmtFull(data.generatedAt) + (extra || '');
+  el.innerHTML = html;
+}
+
+function filtered(list, kind) {
+  var q = state.q.trim().toUpperCase();
+  return list.filter(function (r) {
+    if (state.cls !== 'all' && r.cls !== state.cls) return false;
+    if (kind === 'gates') {
+      if (state.gate !== 'all' && r.gate !== state.gate) return false;
+      if (state.onSched === 'yes' && !r.active) return false;
+      if (state.onSched === 'no' && r.active) return false;
+    } else {
+      if (state.jobGate === 'active' && !r.active) return false;
+      if (state.jobGate === 'open' && r.status !== 'Open') return false;
+      if (state.jobGate === 'openoff' && !(r.status === 'Open' && !r.active)) return false;
+      if (state.jobGate === 'closed' && r.status === 'Open') return false;
+    }
+    if (q && (r.id + ' ' + (r.name || '')).toUpperCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+var COLS = {
+  gates: [
+    { key: 'id', label: 'SiteID' }, { key: 'name', label: 'Site Name' }, { key: 'cls', label: 'Class' },
+    { key: 'gate', label: 'Gate', html: function (r) { return gatePill(r.gate); }, sortBy: 'hours' },
+    { key: 'hours', label: 'Quiet for', html: function (r) { return hrs(r.hours); }, csv: function (r) { return r.hours == null ? '' : r.hours; } },
+    { key: 'last', label: 'Last call-in (HWM)', html: function (r) { return fmt(r.last); }, csv: function (r) { return fmtFull(r.last); } },
+    { key: 'job', label: 'Telemetry job', html: function (r) { return r.job ? '<span class="pill p24">Open</span>' : '<span class="sub">Not raised yet</span>'; }, csv: function (r) { return r.job || 'Not raised yet'; } },
+    { key: 'active', label: 'Active on schedule', html: function (r) { return yesNo(r.active); }, csv: function (r) { return r.active ? 'Yes' : 'No'; } },
+    { key: 'sla', label: 'SLA', html: function (r) { return slaCell(r.sla); } },
+    { key: 'status', label: 'Current Status' }
+  ],
+  jobs: [
+    { key: 'id', label: 'SiteID' }, { key: 'name', label: 'Site Name' }, { key: 'cls', label: 'Class' },
+    { key: 'raised', label: 'Raised', html: function (r) { return fmt(r.raised); }, csv: function (r) { return fmtFull(r.raised); } },
+    { key: 'status', label: 'Job', html: function (r) { return r.status === 'Open' ? '<span class="pill p24">Open</span>' : '<span class="pill pclosed">' + esc(r.status) + '</span>'; } },
+    { key: 'active', label: 'Active on schedule', html: function (r) { return yesNo(r.active); }, csv: function (r) { return r.active ? 'Yes' : 'No'; } },
+    { key: 'sla', label: 'SLA', html: function (r) { return slaCell(r.sla); } },
+    { key: 'hours', label: 'Quiet now', html: function (r) { return r.hours == null ? '' : hrs(r.hours) + (GATES.some(function (G) { return G.key === r.gate; }) ? ' ' + gatePill(r.gate) : ''); }, csv: function (r) { return r.hours == null ? '' : r.hours; } },
+    { key: 'siteStatus', label: 'Current Status' },
+    { key: 'closed', label: 'Closed', html: function (r) { return fmt(r.closed); }, csv: function (r) { return fmtFull(r.closed); } },
+    { key: 'closeReason', label: 'Close reason', wrap: true }
+  ]
+};
+
+function sortRows(rows, kind) {
+  var s = state.sort[kind];
+  var col = COLS[kind].filter(function (c) { return c.key === s.key; })[0] || {};
+  var k = col.sortBy || s.key;
+  return rows.slice().sort(function (a, b) {
+    var x = a[k], y = b[k];
+    if (typeof x === 'boolean') { x = x ? 1 : 0; y = y ? 1 : 0; }
+    if (x == null || x === '') return 1; if (y == null || y === '') return -1;
+    var c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y));
+    return s.asc ? c : -c;
+  });
+}
+
+function chips(name, opts) {
+  return opts.map(function (o) { return '<button class="chip' + (state[name] === o[0] ? ' on' : '') + '" data-set="' + name + '" data-val="' + o[0] + '">' + esc(o[1]) + '</button>'; }).join('');
+}
+
+function render() {
+  setUpdated();
+  var c = data.counts, html = '';
+  html += '<div class="tabs"><button data-tab="gates" class="' + (state.tab === 'gates' ? 'on' : '') + '">Quiet gates</button>' +
+    '<button data-tab="jobs" class="' + (state.tab === 'jobs' ? 'on' : '') + '">Telemetry jobs</button></div>';
+  (data.warnings || []).forEach(function (w) { html += '<div class="warn">' + esc(w) + '</div>'; });
+
+  var kind = state.tab, rows;
+  if (kind === 'gates') {
+    html += '<div class="tiles">' + GATES.map(function (G) {
+      return '<button class="tile ' + G.cls + (state.gate === G.key ? ' on' : '') + '" data-set="gate" data-val="' + G.key + '"><div class="n">' + (c.gates[G.key] || 0) + '</div><div class="l">' + G.label + '</div></button>';
+    }).join('') +
+      '<button class="tile gmut' + (state.gate === 'all' ? ' on' : '') + '" data-set="gate" data-val="all"><div class="n">' + ((c.gates['24 h+'] || 0) + (c.gates['18-24 h'] || 0) + (c.gates['12-18 h'] || 0)) + '</div><div class="l">All gates · ' + (c.gates['Under 12 h'] || 0) + ' sites under 12 h</div></button></div>';
+    html += '<div class="bar">' + '<span class="lbl">Class</span>' + chips('cls', [['all', 'All'], ['EDM', 'EDM'], ['LDM', 'LDM']]) +
+      '<span class="lbl">Active on schedule</span>' + chips('onSched', [['all', 'All'], ['yes', 'Yes'], ['no', 'No']]);
+    rows = sortRows(filtered(data.sites, 'gates'), 'gates');
+  } else {
+    html += '<div class="tiles">' +
+      '<button class="tile gact' + (state.jobGate === 'active' ? ' on' : '') + '" data-set="jobGate" data-val="active"><div class="n">' + c.jobs.active + '</div><div class="l">Active on the schedule</div></button>' +
+      '<button class="tile g12' + (state.jobGate === 'openoff' ? ' on' : '') + '" data-set="jobGate" data-val="openoff"><div class="n">' + c.jobs.openNotActive + '</div><div class="l">Open, not active on schedule</div></button>' +
+      '<button class="tile gmut' + (state.jobGate === 'closed' ? ' on' : '') + '" data-set="jobGate" data-val="closed"><div class="n">' + c.jobs.closed + '</div><div class="l">Closed in the last ' + data.jobDays + ' days</div></button>' +
+      '<button class="tile g24' + (state.jobGate === 'open' ? ' on' : '') + '" data-set="jobGate" data-val="open"><div class="n">' + (c.jobs.active + c.jobs.openNotActive) + '</div><div class="l">Open jobs · ' + c.jobs.raisedToday + ' raised today</div></button></div>';
+    html += '<div class="bar">' + '<span class="lbl">Show</span>' + chips('jobGate', [['open', 'Open'], ['active', 'Active on schedule'], ['closed', 'Closed'], ['all', 'All']]) +
+      '<span class="lbl">Class</span>' + chips('cls', [['all', 'All'], ['EDM', 'EDM'], ['LDM', 'LDM']]);
+    rows = sortRows(filtered(data.jobs, 'jobs'), 'jobs');
+  }
+  html += '<span class="spacer"></span><input type="search" id="q" placeholder="Search SiteID or name" value="' + esc(state.q) + '">' +
+    '<button class="btn" id="csv">Download CSV</button></div>';
+
+  var cols = COLS[kind], s = state.sort[kind];
+  html += '<div class="tablewrap"><table><thead><tr>' + cols.map(function (col) {
+    return '<th data-sort="' + col.key + '" class="' + (s.key === col.key ? 'sorted' + (s.asc ? ' asc' : '') : '') + '">' + esc(col.label) + '</th>';
+  }).join('') + '</tr></thead><tbody>';
+  if (!rows.length) html += '<tr><td colspan="' + cols.length + '"><div class="empty">Nothing to show for these filters.</div></td></tr>';
+  rows.forEach(function (r) {
+    html += '<tr>' + cols.map(function (col) { return '<td' + (col.wrap ? ' class="wr"' : '') + '>' + (col.html ? col.html(r) : esc(r[col.key])) + '</td>'; }).join('') + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  html += '<div class="note">' + (kind === 'gates'
+    ? 'Gates use the time since HWM last heard from each site\'s logger (refreshed every 30 minutes). A telemetry job is raised when a site has been quiet for more than 24 h on the Telemetry Report (05:45, 10:00, 12:31 and 15:00), so a site can show 24 h+ here before its job appears. EDM and LDM sites only.'
+    : 'Jobs come from the Telemetry WO Register. Active on schedule means the job is live on the Onsite_WOs schedule (WO Active Condition Yes). A job closes when a visit completes or the site calls in again; if the site goes quiet again later it is a new job with its SLA from that run. EDM and LDM only.') +
+    ' Showing ' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + '.</div>';
+
+  var focus = document.activeElement && document.activeElement.id === 'q';
+  var caret = focus ? document.activeElement.selectionStart : 0;
+  show(html);
+  if (focus) { var qi = document.getElementById('q'); qi.focus(); qi.setSelectionRange(caret, caret); }
+  state.visible = { kind: kind, rows: rows };
+}
+
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-tab],[data-set],[data-sort],#csv');
+  if (!t) return;
+  if (t.dataset.tab) { state.tab = t.dataset.tab; render(); return; }
+  if (t.dataset.set) { state[t.dataset.set] = (state[t.dataset.set] === t.dataset.val && t.dataset.set === 'gate') ? 'all' : t.dataset.val; render(); return; }
+  if (t.dataset.sort) { var s = state.sort[state.tab]; if (s.key === t.dataset.sort) s.asc = !s.asc; else { s.key = t.dataset.sort; s.asc = /^(id|name|cls|status|siteStatus|closeReason)$/.test(s.key); } render(); return; }
+  if (t.id === 'csv') downloadCsv();
+});
+document.addEventListener('input', function (e) { if (e.target.id === 'q') { state.q = e.target.value; render(); } });
+
+function downloadCsv() {
+  var v = state.visible; if (!v) return;
+  var cols = COLS[v.kind];
+  var cell = function (x) { x = String(x == null ? '' : x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  var lines = [cols.map(function (c) { return cell(c.label); }).join(',')];
+  v.rows.forEach(function (r) { lines.push(cols.map(function (c) { return cell(c.csv ? c.csv(r) : r[c.key]); }).join(',')); });
+  var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Telemetry ' + (v.kind === 'gates' ? 'quiet gates' : 'jobs') + ' ' + (data.generatedAt || '').slice(0, 16).replace(/[T:]/g, '-') + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+load();
+setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
